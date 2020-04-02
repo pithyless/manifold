@@ -3,7 +3,8 @@
            riddley                   {:mvn/version "0.1.15"}}
  :aliases {:dev   {:extra-deps {org.clojure/core.async {:mvn/version "0.4.474"}
                                 criterium              {:mvn/version "0.4.5"}}}
-           :test  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0-612"}}}
+           :test  {:extra-deps {lambdaisland/kaocha {:mvn/version "1.0-612"}}
+                   :extra-paths ["test"]}
            :check {:extra-deps {athos/clj-check {:git/url "https://github.com/athos/clj-check.git"
                                                  :sha     "b48d4e7000586529f81c1e29069b503b57259514"}}
                    :jvm-opts   ["-Dclojure.spec.compile-asserts=true"]
