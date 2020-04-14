@@ -406,7 +406,7 @@
   (testing "times out"
     (let [s (s/stream)
           put-result (s/try-put! s :value 10 ::timeout)]
-      (is (= ::timeout (deref put-result 15 ::wrong))))))
+      (is (= ::timeout (deref put-result 100 ::wrong))))))
 
 (deftest test-error-handling
 

@@ -1101,7 +1101,7 @@
           (aset a j i)
           (recur (inc i)))))))
 
-(defn alt'
+(defn ^::deferred-args? alt'
   "Like `alt`, but only unwraps Manifold deferreds."
   [& vals]
   (let [d (deferred)
@@ -1122,7 +1122,7 @@
             (success! d x)))))
     d))
 
-(defn alt
+(defn ^::deferred-args? alt
   "Takes a list of values, some of which may be deferrable, and returns a
   deferred that will yield the value which was realized first.
 
@@ -1276,10 +1276,26 @@
 
 ;;;
 
-(defn- back-references [marker form]
+(defn- ignore-symbol?
+  "If the metadata of a symbol indicate that it's args can all be deffereds,
+  then the symbol can be skipped for back-references purposes."
+  [s]
+  (when-not (contains? (compiler/locals) s)
+    (-> s resolve meta ::deferred-args?)))
+
+(defn- back-references
+  "When used in the let bindings, always calculate all back references to guarantee
+  consistency of arg names in later forms. For use in the body, we can skip S-expressions
+  who's operator matches `ignore-symbol?`."
+  [body? marker form]
   (let [syms (atom #{})]
     (walk/walk-exprs
-      symbol?
+      (fn [expr]
+        (or (and body?
+                 (seq? expr)
+                 (symbol? (first expr))
+                 (ignore-symbol? (first expr)))
+            (symbol? expr)))
       (fn [s]
         (when (some-> (compiler/locals) (find s) key meta (get marker))
           (swap! syms conj s)))
@@ -1307,31 +1323,39 @@
                                   (fn [n form]
                                     (map
                                       (zipmap vars' (take n gensyms))
-                                      (back-references marker form)))
+                                      (back-references false marker form)))
                                   (range))))
         binding-dep?        (->> gensym->deps vals (apply concat) set)
-
         body-dep?           (->> `(let [~@(interleave
                                             vars'
                                             (repeat nil))]
                                     ~@body)
-                              (back-references marker)
-                              (map (zipmap vars' gensyms))
-                              (concat (drop (count vars) gensyms))
-                              set)
+                                 (back-references true marker)
+                                 (map (zipmap vars' gensyms))
+                                 ;; explicitly keep only all items introduced in `let-flow` bindings
+                                 (concat (drop (- (count gensyms) (count vars))
+                                               gensyms))
+                                 set)
         dep?                (set/union binding-dep? body-dep?)]
     `(let [executor# (manifold.executor/executor)]
        (manifold.executor/with-executor nil
          (let [~@(mapcat
                    (fn [n var val gensym]
-                     (let [deps (gensym->deps gensym)]
+                     (let [deps         (gensym->deps gensym)
+                           ignore-deps? (and (seq? val)
+                                             (symbol? (first val))
+                                             (ignore-symbol? (first val)))]
                        (if (empty? deps)
                          (when (dep? gensym)
                            [gensym val])
                          [gensym
-                          `(~chain-fn (~zip-fn ~@deps)
-                            (fn [[~@(map gensym->var deps)]]
-                              ~val))])))
+                          ;; don't wait for args to a function if the function can directly work
+                          ;; with deferred objects
+                          `(~chain-fn (if ~ignore-deps?
+                                        [~@deps]
+                                        (~zip-fn ~@deps))
+                             (fn [[~@(map gensym->var deps)]]
+                               ~val))])))
                    (range)
                    vars'
                    vals'
@@ -1344,7 +1368,10 @@
 (defmacro let-flow
   "A version of `let` where deferred values that are let-bound or closed over can be treated
    as if they are realized values.  The body will only be executed once all of the let-bound
-   values, even ones only used for side effects, have been computed.
+   values, even ones only used for side effects, have been computed. Methods which have the
+   `:manifold.deferred/deferred-args?` set to true in their meta, like `alt`, will have their
+   arguments passed in without explicit blocking, but only if they occur as a direct function
+   call (implementation limitation).
 
    Returns a deferred value, representing the value returned by the body.
 
