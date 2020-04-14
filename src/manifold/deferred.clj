@@ -931,7 +931,7 @@
   ([x f g & fs]
      (apply chain- nil x f g fs)))
 
-(defn catch'
+(defn ^::deferred-args catch'
   "Like `catch`, but does not coerce deferrable values."
   ([x error-handler]
      (catch' x nil error-handler))
@@ -966,7 +966,7 @@
 
              d'))))))
 
-(defn catch
+(defn ^::deferred-args catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
    with the exception, and whose return value will be yielded as a successful outcome.  If an
    `error-class` is specified, only exceptions of that type will be caught.  If not, all exceptions
@@ -988,7 +988,7 @@
          chain)
        x)))
 
-(defn finally'
+(defn ^::deferred-args finally'
   "Like `finally`, but doesn't coerce deferrable values."
   [x f]
   (success-error-unrealized x
@@ -1019,7 +1019,7 @@
              (error! d e))))
       d)))
 
-(defn finally
+(defn ^::deferred-args finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
    no matter what the result."
   [x f]
@@ -1027,7 +1027,7 @@
     (finally' d f)
     (finally' x f)))
 
-(defn zip'
+(defn ^::deferred-args zip'
   "Like `zip`, but only unwraps Manifold deferreds."
   {:inline (fn [x] `(chain' ~x vector))
    :inline-arities #{1}}
@@ -1075,7 +1075,7 @@
               (.decrementAndGet counter)
               (recur d idx' rst))))))))
 
-(defn zip
+(defn ^::deferred-args zip
   "Takes a list of values, some of which may be deferrable, and returns a deferred that will yield a list
    of realized values.
 
@@ -1101,7 +1101,7 @@
           (aset a j i)
           (recur (inc i)))))))
 
-(defn ^::deferred-args? alt'
+(defn ^::deferred-args alt'
   "Like `alt`, but only unwraps Manifold deferreds."
   [& vals]
   (let [d (deferred)
@@ -1122,7 +1122,7 @@
             (success! d x)))))
     d))
 
-(defn ^::deferred-args? alt
+(defn ^::deferred-args alt
   "Takes a list of values, some of which may be deferrable, and returns a
   deferred that will yield the value which was realized first.
 
@@ -1280,8 +1280,9 @@
   "If the metadata of a symbol indicate that it's args can all be deffereds,
   then the symbol can be skipped for back-references purposes."
   [s]
-  (when-not (contains? (compiler/locals) s)
-    (-> s resolve meta ::deferred-args?)))
+  (when (and (symbol? s)
+             (not (contains? (compiler/locals) s)))
+    (-> s resolve meta ::deferred-args)))
 
 (defn- back-references
   "When used in the let bindings, always calculate all back references to guarantee
@@ -1293,23 +1294,25 @@
       (fn [expr]
         (or (and body?
                  (seq? expr)
-                 (symbol? (first expr))
                  (ignore-symbol? (first expr)))
             (symbol? expr)))
       (fn [s]
         (when (some-> (compiler/locals) (find s) key meta (get marker))
           (swap! syms conj s)))
+      ignore-symbol?
       form)
     @syms))
 
 (defn- expand-let-flow [chain-fn zip-fn bindings body]
-  (let [[_ bindings & body] (walk/macroexpand-all `(let ~bindings ~@body))
+  (let [orig-body body
+        [_ bindings & body] (walk/walk-exprs (constantly false) nil ignore-symbol? `(let ~bindings ~@body))
         locals              (keys (compiler/locals))
         vars                (->> bindings (partition 2) (map first))
         marker              (gensym)
         vars'               (->> vars (concat locals) (map #(vary-meta % assoc marker true)))
         gensyms             (repeatedly (count vars') gensym)
         gensym->var         (zipmap gensyms vars')
+        ;readable-gensym-helper #(map gensym->var %)
         vals'               (->> bindings (partition 2) (map second) (concat locals))
         gensym->deps        (zipmap
                               gensyms
@@ -1365,11 +1368,11 @@
               (manifold.executor/with-executor executor#
                 ~@body))))))))
 
-(defmacro let-flow
+(defmacro ^::deferred-args let-flow
   "A version of `let` where deferred values that are let-bound or closed over can be treated
    as if they are realized values.  The body will only be executed once all of the let-bound
    values, even ones only used for side effects, have been computed. Methods which have the
-   `:manifold.deferred/deferred-args?` set to true in their meta, like `alt`, will have their
+   `:manifold.deferred/deferred-args` set to true in their meta, like `alt`, will have their
    arguments passed in without explicit blocking, but only if they occur as a direct function
    call (implementation limitation).
 
@@ -1392,7 +1395,7 @@
     bindings
     body))
 
-(defmacro let-flow'
+(defmacro ^::deferred-args let-flow'
   "Like `let-flow`, but only for Manifold deferreds."
   [bindings & body]
   (expand-let-flow

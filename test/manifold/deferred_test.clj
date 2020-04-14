@@ -83,17 +83,17 @@
     (is (= true @flag)))
 
   (is (= 5
-        @(let [z (clojure.core/future 1)]
-           (d/let-flow [x (d/future (clojure.core/future z))
-                        y (d/future (+ z x))]
-             (d/future (+ x x y z))))))
+         @(let [z (clojure.core/future 1)]
+            (d/let-flow [x (d/future (clojure.core/future z))
+                         y (d/future (+ z x))]
+              (d/future (+ x x y z))))))
 
   (is (= 2
-        @(let [d (d/deferred)]
-           (d/let-flow [[x] (future' [1])]
-             (d/let-flow [[x'] (future' [(inc x)])
-                          y (future' true)]
-               (when y x'))))))
+         @(let [d (d/deferred)]
+            (d/let-flow [[x] (future' [1])]
+              (d/let-flow [[x'] (future' [(inc x)])
+                           y (future' true)]
+                (when y x'))))))
 
   (let [start          (System/currentTimeMillis)
         future-timeout (d/future (Thread/sleep 500) "b")
@@ -126,7 +126,24 @@
   (is (= ::timeout
          @(d/let-flow [x (d/timeout! (d/future (Thread/sleep 1000) "cat") 50 ::timeout)]
             x))
-      "Timeouts introduced in let-flow should be respected."))
+      "Timeouts introduced in let-flow should be respected.")
+
+  (let [start (System/currentTimeMillis)
+        slow  (d/future (Thread/sleep 300) "slow")
+        fast  (d/future (Thread/sleep 5) "fast")]
+    (is (= "fast"
+           @(d/let-flow [x "cat"]
+              (d/let-flow [z (d/alt slow fast)]
+                z)))
+        "let-flow's should behave identically inside the body of another let-flow")
+    (is (= "fast"
+           @(d/let-flow [x "cat"
+                         y (d/let-flow [z (d/alt slow fast)]
+                             z)]
+              y))
+        "let-flow's should behave identically inside the bindings of another let-flow")
+    (is (>= 200 (- (System/currentTimeMillis) start))
+        "let-flow's should behave identically inside another let-flow")))
 
 (deftest test-chain-errors
   (let [boom (fn [n] (throw (ex-info "" {:n n})))]
