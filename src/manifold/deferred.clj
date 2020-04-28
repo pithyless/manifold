@@ -1357,14 +1357,14 @@
                           `(~chain-fn (if ~ignore-deps?
                                         [~@deps]
                                         (~zip-fn ~@deps))
-                             (fn [[~@(map gensym->var deps)]]
+                             (bound-fn [[~@(map gensym->var deps)]]
                                ~val))])))
                    (range)
                    vars'
                    vals'
                    gensyms)]
            (~chain-fn (~zip-fn ~@body-dep?)
-            (fn [[~@(map gensym->var body-dep?)]]
+            (bound-fn [[~@(map gensym->var body-dep?)]]
               (manifold.executor/with-executor executor#
                 ~@body))))))))
 
