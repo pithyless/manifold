@@ -29,6 +29,8 @@
   [port]
   `(let [r# (<!-no-throw ~port)]
      (if (instance? Throwable r#)
+       ;; this is a re-throw of the original throwable. the expectation is that
+       ;; it still will maintain the original stack trace
        (throw r#)
        r#)))
 
@@ -60,7 +62,8 @@
   Upon completion of the operation, the body will be resumed.
 
   Returns a deferred which will receive the result of the body when
-  completed"
+  completed. If the body returns a deferred, the result will be unwrapped
+  until a non-deferable value is available to be placed onto the return deferred."
   [& body]
   (let [crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [d#                 (d/deferred)
@@ -73,4 +76,5 @@
                                     (ioc/aset-all! ioc/USER-START-IDX d#
                                                    ioc/BINDINGS-IDX captured-bindings#))]
                      (run-state-machine-wrapped state#))))
-       d#)))
+       ;; chain is8 being used to apply unwrap chain
+       (d/chain d#))))
