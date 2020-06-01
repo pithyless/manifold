@@ -1,13 +1,13 @@
 (ns ^{:author "Ryan Smith"
-      :doc    "Provide an variant of `core.async/go` that works with manifold's deferreds and executors. Utilizes core.async's state-machine generator, so core.async must be available as a dependency."}
-  manifold.go
+      :doc    "Provide a variant of `core.async/go` that works with manifold's deferreds and executors. Utilizes core.async's state-machine generator, so core.async must be available as a dependency."}
+  manifold.tsasvla
   (:require [manifold
              [executor :as ex]
              [deferred :as d]]
             [clojure.core.async.impl
              [ioc-macros :as ioc]]))
 
-(defn return-chan [state value]
+(defn return-deferred [state value]
   (let [d (ioc/aget-object state ioc/USER-START-IDX)]
     (d/success! d value)
     d))
@@ -17,13 +17,13 @@
   return nil if closed. Will park if nothing is available. If an error
   is thrown inside the body, that error will be placed as the return value.
 
-  N.B. To make `go` usage idiomatic with the rest of manifold, use `<!?`
+  N.B. To make `tsasvla` usage idiomatic with the rest of manifold, use `<!?`
   instead of this directly."
   [port]
-  (assert nil "<! used not in (go ...) block"))
+  (assert nil "<! used not in (tsasvla ...) block"))
 
 (defmacro <!?
-  "takes a val from port. Must be called inside a (go ...) block.
+  "takes a val from port. Must be called inside a (tsasvla ...) block.
   Will park if nothing is available. If value that is returned is
   a Throwable, will re-throw."
   [port]
@@ -51,10 +51,10 @@
       :recur)))
 
 (def async-custom-terminators
-  {'manifold.go/<!-no-throw `manifold.go/take!
-   :Return                  `return-chan})
+  {'manifold.tsasvla/<!-no-throw `manifold.tsasvla/take!
+   :Return                      `return-deferred})
 
-(defmacro go
+(defmacro tsasvla
   "Asynchronously executes the body, returning immediately to the
   calling thread. Additionally, any visible calls to <!? and <!-no-throw
   deferred operations within the body will block (if necessary) by
@@ -63,7 +63,12 @@
 
   Returns a deferred which will receive the result of the body when
   completed. If the body returns a deferred, the result will be unwrapped
-  until a non-deferable value is available to be placed onto the return deferred."
+  until a non-deferable value is available to be placed onto the return deferred.
+
+  This method is very similar to `core.async/go`, and even uses underlying functions
+  of core.async to implement the state machine, but has some slightly different
+  semantics to make it's usage more \"as expected\" with the rest of manifold. The name
+  წასვლა is Georgian for \"to go\"."
   [& body]
   (let [crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [d#                 (d/deferred)
