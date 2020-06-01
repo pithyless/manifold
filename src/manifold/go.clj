@@ -38,15 +38,15 @@
          (d/error! (ioc/aget-object state ioc/USER-START-IDX) ex)
          (throw ex))))
 
-(defn take! [state blk c]
+(defn take! [state blk d]
   (let [handler (fn [x]
                   (ioc/aset-all! state ioc/VALUE-IDX x ioc/STATE-IDX blk)
-                  (run-state-machine-wrapped state))]
-    (-> c
-        (d/chain handler)
-        (d/catch handler)))
-  (when (d/realized? c)
-    :recur))
+                  (run-state-machine-wrapped state))
+        d'      (-> d
+                    (d/chain handler)
+                    (d/catch handler))]
+    (when (d/realized? d')
+      :recur)))
 
 (def async-custom-terminators
   {'manifold.go/<!-no-throw `manifold.go/take!
