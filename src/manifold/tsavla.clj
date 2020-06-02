@@ -55,7 +55,8 @@
    :Return                      `return-deferred})
 
 (defmacro tsasvla
-  "Asynchronously executes the body, returning immediately to the
+  "წასვლა - Georgian for \"to go\"
+  Asynchronously executes the body, returning immediately to the
   calling thread. Additionally, any visible calls to <!? and <!-no-throw
   deferred operations within the body will block (if necessary) by
   'parking' the calling thread rather than tying up an OS thread.
@@ -65,10 +66,22 @@
   completed. If the body returns a deferred, the result will be unwrapped
   until a non-deferable value is available to be placed onto the return deferred.
 
-  This method is very similar to `core.async/go`, and even uses underlying functions
-  of core.async to implement the state machine, but has some slightly different
-  semantics to make it's usage more \"as expected\" with the rest of manifold. The name
-  წასვლა is Georgian for \"to go\"."
+  This method is intended to be similar to `core.async/go`, and even utilizes the
+  underlying state machine related functions from `core.async`. It's been designed
+  to address the following major points from core.async & vanilla manifold deferreds:
+
+  - `core.async/go` assumes that all of your code is able to be purely async
+  and will never block the handling threads. This code removes the concept of handling
+  threads which means blocking is not an issue, but if you spawn too many of these you
+  can create too many threads for the OS to handle.
+  - `core.async/go` has absolutely no way of bubbling up exceptions and assumes all
+  code will be defensively written, which differs from how clojure code blocks work
+  outside of the async world.
+  - `deferred/let-flow` presumes that every deferrable needs to be resolved. This prevents
+  more complex handling of parallelism or being able to pass deferreds into other functions
+  from within the `let-flow` block
+  - `deferred/chain` only works with single deferreds, which means having to write code in
+  unnatural ways to handle multiple deferreds."
   [& body]
   (let [crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [d#                 (d/deferred)
