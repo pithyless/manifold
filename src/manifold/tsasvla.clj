@@ -56,10 +56,10 @@
 
 (defmacro tsasvla
   "წასვლა - Georgian for \"to go\"
-  Asynchronously executes the body, returning immediately to the
-  calling thread. Additionally, any visible calls to <!? and <!-no-throw
-  deferred operations within the body will block (if necessary) by
-  'parking' the calling thread rather than tying up an OS thread.
+  Asynchronously executes the body on manifold's default executor, returning
+  immediately to the calling thread. Additionally, any visible calls to <!?
+  and <!-no-throw deferred operations within the body will block (if necessary)
+  by 'parking' the calling thread rather than tying up an OS thread.
   Upon completion of the operation, the body will be resumed.
 
   Returns a deferred which will receive the result of the body when
@@ -71,8 +71,8 @@
   to address the following major points from core.async & vanilla manifold deferreds:
 
   - `core.async/go` assumes that all of your code is able to be purely async
-  and will never block the handling threads. This code removes the concept of handling
-  threads which means blocking is not an issue, but if you spawn too many of these you
+  and will never block the handling threads. Tsasvla removes the concept of handling
+  threads, which means blocking is not an issue, but if you spawn too many of these you
   can create too many threads for the OS to handle.
   - `core.async/go` has absolutely no way of bubbling up exceptions and assumes all
   code will be defensively written, which differs from how clojure code blocks work
