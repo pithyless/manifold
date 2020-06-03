@@ -57,3 +57,12 @@ Thanks to Paweł Stroiński
 
 * Fix handling of non-`Throwable` deferred errors when dereferencing
 
+### 0.1.9
+
+* Yummly managed version
+* Migrate to clj-deps
+* fix bug waiting on local variables not referenced in `let-flow`
+* `let-flow` doesn't resolve deferred args to `alt`, `zip`, `finally`, `catch`, `let-flow`, and all of their `'` variants
+* `let-flow` to use `bound-fn` instead of `fn` so dynamic variables aren't lost
+* `let-flow` to require unique `let` binding names. Names are required to be unique or the results are non-deterministic
+* introduce new `tsasvla` namespace and macro as an alternative to `let-flow`
