@@ -5,7 +5,8 @@
              [executor :as ex]
              [deferred :as d]]
             [clojure.core.async.impl
-             [ioc-macros :as ioc]]))
+             [ioc-macros :as ioc]])
+  (:import (java.util.concurrent Executor)))
 
 (defn return-deferred [state value]
   (let [d (ioc/aget-object state ioc/USER-START-IDX)]
@@ -86,7 +87,7 @@
   (let [crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [d#                 (d/deferred)
            captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
-       (.execute (ex/execute-pool) ^Runnable
+       (.execute ^Executor (ex/execute-pool) ^Runnable
                  (^:once fn* []
                    (let [~@(mapcat (fn [[l sym]] [sym `(^:once fn* [] ~(vary-meta l dissoc :tag))]) crossing-env)
                          f# ~(ioc/state-machine `(do ~@body) 1 [crossing-env &env] async-custom-terminators)
@@ -96,3 +97,5 @@
                      (run-state-machine-wrapped state#))))
        ;; chain is8 being used to apply unwrap chain
        (d/chain d#))))
+
+(tsasvla "cat")
