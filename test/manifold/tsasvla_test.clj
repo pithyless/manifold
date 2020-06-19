@@ -1,0 +1,112 @@
+(ns manifold.tsasvla-test
+  (:require [clojure.test :refer :all]
+            [manifold.tsasvla :refer [tsasvla <!?]]
+            [manifold.deferred :as d])
+  (:import (java.util.concurrent TimeoutException)))
+
+(deftest async-test
+  (testing "values are returned correctly"
+    (is (= 10
+           @(tsasvla (<!? (d/success-deferred 10))))))
+
+  (testing "case with go"
+    (is (= :1
+           @(tsasvla (case (name :1)
+                  "0" :0
+                  "1" :1
+                  :3)))))
+
+  (testing "nil result of go"
+    (is (= nil
+           @(tsasvla nil))))
+
+  (testing "take inside binding of loop"
+    (is (= 42
+           @(tsasvla (loop [x (<!? (d/success-deferred 42))]
+                  x)))))
+
+  (testing "can get from a catch"
+    (let [c (d/success-deferred 42)]
+      (is (= 42
+             @(tsasvla (try
+                    (assert false)
+                    (catch Throwable ex (<!? c)))))))))
+
+(deftest enqueued-chan-ops
+  (testing "enqueued channel takes re-enter async properly"
+    (is (= :foo
+           (let [d          (d/deferred)
+                 async-chan (tsasvla (<!? d))]
+             (d/success! d :foo)
+             @async-chan)))
+
+    (is (= 3
+           (let [d1 (d/deferred)
+                 d2 (d/deferred)
+                 d3 (d/deferred)
+                 async-chan (tsasvla (+ (<!? d1) (<!? d2) (<!? d3)))]
+             (d/success! d3 1)
+             (d/success! d2 1)
+             (d/success! d1 1)
+             @async-chan)))))
+
+(deftest go-nests
+  (testing "return deferred will always result in a a realizable value, not another deferred"
+    (is (= [23 42] @(tsasvla (let [let* 1 a 23] (tsasvla (let* [b 42] [a b]))))))
+    (is (= 5 @(tsasvla (tsasvla (tsasvla (tsasvla (tsasvla (tsasvla (tsasvla 5))))))))))
+  (testing "Parking unwraps nested deferreds"
+    (is (= 5 @(tsasvla (<!? (tsasvla (tsasvla (tsasvla 5)))))))))
+
+(deftest error-propagation
+  (is (= "chained catch"
+         @(d/catch (tsasvla (/ 5 0))
+                   (constantly "chained catch"))))
+
+  (is (= "try/catch in block"
+         @(tsasvla (try (/ 5 0)
+                       (catch Throwable _ "try/catch in block")))))
+
+  (testing "Try/catch around parking will continue block"
+    (is (= "try/catch parking"
+           @(tsasvla (try (<!? (d/future (/ 5 0)))
+                         (catch Throwable _ "try/catch parking")))))
+    (is (= 5
+           @(tsasvla (try (<!? (d/future (/ 5 0)))
+                         (catch Throwable _))
+                    5))))
+
+  (testing "Normal deferred handling still works"
+    (is (= 5
+           @(tsasvla (<!? (d/catch (d/future (/ 5 0)) (constantly 5))))))))
+
+(deftest non-deferred-takes
+  (testing "Can take from non-deffereds"
+    (is (= 5 @(tsasvla (<!? 5))))
+    (is (= "test" @(tsasvla (<!? "test"))))))
+
+(deftest already-realized-values
+  (testing "When taking from already realized values, the threads should not change."
+    (let [original-thread (atom nil)]
+      (is (= @(tsasvla (reset! original-thread (Thread/currentThread))
+                      (<!? "cat")
+                      (Thread/currentThread))
+             @original-thread)))
+
+    (let [original-thread (atom nil)]
+      (is (= @(tsasvla (reset! original-thread (Thread/currentThread))
+                      (<!? (d/success-deferred "cat"))
+                      (Thread/currentThread))
+             @original-thread)))))
+
+(deftest deferred-interactions
+  (testing "timeouts"
+    (is (= ::timeout @(tsasvla (<!? (d/timeout! (d/deferred) 10 ::timeout)))))
+    (is (= ::timeout @(d/timeout! (tsasvla (<!? (d/deferred))) 10 ::timeout)))
+    (is (thrown? TimeoutException @(tsasvla (<!? (d/timeout! (d/deferred) 10)))))
+    (is (thrown? TimeoutException @(d/timeout! (tsasvla (<!? (d/deferred))) 10))))
+
+  (testing "alt"
+    (is (= ::timeout @(tsasvla (<!? (d/alt (d/deferred) (d/timeout! (d/deferred) 10 ::timeout))))))
+    (is (= ::timeout @(d/alt (tsasvla (<!? (d/deferred))) (d/timeout! (d/deferred) 10 ::timeout))))
+    (is (= 1 @(tsasvla (<!? (d/alt (d/deferred) (d/success-deferred 1))))))
+    (is (= 1 @(d/alt (tsasvla (<!? (d/deferred))) (d/success-deferred 1))))))

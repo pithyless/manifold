@@ -166,6 +166,14 @@ In this example, `c` is declared within a normal `let` binding, and as such we c
 
 It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's goroutines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a goroutine are inherently sequential.
 
+### `manifold.tsasvla/tsasvla`
+
+Whereas `let-flow` assumes that every thing in the `let-flow` bindings should be automatically be resolved, it's sometimes preferred to have more fine-grained control over the execution of the code block. `tsasvla` is an almost direct comparison to `core.async/go`, except that errors bubble up from parked blocks.
+
+```clj
+(tsasvla (+ (<!? (d/future 20)) (<!? (d/future 10))))
+``` 
+
 ### `manifold.deferred/loop`
 
 Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined.  Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:

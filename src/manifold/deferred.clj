@@ -1277,7 +1277,7 @@
 ;;;
 
 (defn- ignore-symbol?
-  "If the metadata of a symbol indicate that it's args can all be deffereds,
+  "If the metadata of a symbol indicates that it's args can all be deffereds,
   then the symbol can be skipped for back-references purposes."
   [s]
   (when (and (symbol? s)
