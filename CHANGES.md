@@ -66,3 +66,7 @@ Thanks to Paweł Stroiński
 * `let-flow` to use `bound-fn` instead of `fn` so dynamic variables aren't lost
 * `let-flow` to require unique `let` binding names. Names are required to be unique or the results are non-deterministic
 * introduce new `tsasvla` namespace and macro as an alternative to `let-flow`
+
+### 0.1.10
+
+* fix tsasvla bug causing duplicated execution after taking from an already realized value

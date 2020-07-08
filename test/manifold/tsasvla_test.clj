@@ -96,7 +96,16 @@
       (is (= @(tsasvla (reset! original-thread (Thread/currentThread))
                       (<!? (d/success-deferred "cat"))
                       (Thread/currentThread))
-             @original-thread)))))
+             @original-thread)))
+
+    (testing "Taking from already realized value doesn't cause remaining body to run twice"
+      (let [blow-up-counter (atom 0)
+            blow-up-fn      (fn [& _] (is (= 1 (swap! blow-up-counter inc))))]
+        @(tsasvla (<!? "cat")
+                  (blow-up-fn))))
+    ;; Sleep is here to make sure that the secondary invocation of `blow-up-fn` that was happening has
+    ;; had time to report it's failure before the test finishes
+    (Thread/sleep 500)))
 
 (deftest deferred-interactions
   (testing "timeouts"

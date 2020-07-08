@@ -42,14 +42,27 @@
          (throw ex))))
 
 (defn take! [state blk d]
-  (let [handler (fn [x]
-                  (ioc/aset-all! state ioc/VALUE-IDX x ioc/STATE-IDX blk)
-                  (run-state-machine-wrapped state))
-        d'      (-> d
-                    (d/chain handler)
-                    (d/catch handler))]
-    (when (d/realized? d')
-      :recur)))
+  (let [handler          (fn [x]
+                           (ioc/aset-all! state ioc/VALUE-IDX x ioc/STATE-IDX blk)
+                           (run-state-machine-wrapped state))
+        d-is-deferrable? (d/deferrable? d)]
+    (if
+      ;; if d is not deferrable immediately resume processing state machine
+      (not d-is-deferrable?)
+      (do (ioc/aset-all! state ioc/VALUE-IDX d ioc/STATE-IDX blk)
+          :recur)
+      (let [d (d/->deferred d)]
+        (if
+          ;; if already realized, deref value and immediately resume processing state machine
+          (d/realized? d)
+          (do (ioc/aset-all! state ioc/VALUE-IDX @d ioc/STATE-IDX blk)
+              :recur)
+
+          ;; resume processing state machine once d has been realized
+          (do (-> d
+                  (d/chain handler)
+                  (d/catch handler))
+              nil))))))
 
 (def async-custom-terminators
   {'manifold.tsasvla/<!-no-throw `manifold.tsasvla/take!
