@@ -1,4 +1,4 @@
-(defproject manifold "0.1.9-alpha2"
+(defproject manifold "0.1.9-alpha4"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -25,6 +25,5 @@
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
-                       "-XX:+UseConcMarkSweepGC"
                        "-Xmx2g"
                        "-XX:NewSize=1g"])

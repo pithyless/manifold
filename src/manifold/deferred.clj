@@ -1341,7 +1341,7 @@
                                                gensyms))
                                  set)
         dep?                (set/union binding-dep? body-dep?)]
-    `(let [executor# (manifold.executor/executor)]
+    `(let [executor# (or (manifold.executor/executor) (ex/execute-pool))]
        (manifold.executor/with-executor nil
          (let [~@(mapcat
                    (fn [n var val gensym]
