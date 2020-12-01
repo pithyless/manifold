@@ -13,6 +13,5 @@
   `(do
      (println "\n-----\n" ~name "\n-----\n")
      (c/quick-bench
-       (do ~@body)
-       :reduce-with #(and %1 %2))))
+       (do ~@body))))
 

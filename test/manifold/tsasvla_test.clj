@@ -1,7 +1,8 @@
 (ns manifold.tsasvla-test
   (:require [clojure.test :refer :all]
             [manifold.tsasvla :refer [tsasvla <!?]]
-            [manifold.deferred :as d])
+            [manifold.deferred :as d]
+            [manifold.test-utils :refer :all])
   (:import (java.util.concurrent TimeoutException)))
 
 (deftest async-test
@@ -119,3 +120,29 @@
     (is (= ::timeout @(d/alt (tsasvla (<!? (d/deferred))) (d/timeout! (d/deferred) 10 ::timeout))))
     (is (= 1 @(tsasvla (<!? (d/alt (d/deferred) (d/success-deferred 1))))))
     (is (= 1 @(d/alt (tsasvla (<!? (d/deferred))) (d/success-deferred 1))))))
+
+(deftest ^:benchmark benchmark-chain
+  (bench "invoke comp x1"
+         ((comp inc) 0))
+  (bench "tsasvla x1"
+         @(tsasvla (inc (<!? 0))))
+  (bench "tsasvla deferred x1"
+         @(tsasvla (inc (<!? (d/success-deferred 0)))))
+  (bench "tsasvla future 200 x1"
+         @(tsasvla (inc (<!? (d/future (Thread/sleep 200) 0)))))
+  (bench "invoke comp x2"
+         ((comp inc inc) 0))
+  (bench "tsasvla x2"
+         @(tsasvla (inc (<!? (inc (<!? 0))))))
+  (bench "tsasvla deferred x2"
+         @(tsasvla (inc (<!? (inc (<!? (d/success-deferred 0)))))))
+  (bench "tsasvla future 200 x2"
+         @(tsasvla (inc (<!? (inc (<!? (d/future (Thread/sleep 200) 0)))))))
+  (bench "invoke comp x5"
+         ((comp inc inc inc inc inc) 0))
+  (bench "tsasvla x5"
+         @(tsasvla (inc (<!? (inc (<!? (inc (<!? (inc (<!? (inc (<!? 0))))))))))))
+  (bench "tsasvla deferred x5"
+         @(tsasvla (inc (<!? (inc (<!? (inc (<!? (inc (<!? (inc (<!? (d/success-deferred 0)))))))))))))
+  (bench "tsasvla future 200 x5"
+         @(tsasvla (inc (<!? (inc (<!? (inc (<!? (inc (<!? (inc (<!? (d/future (Thread/sleep 200) 0))))))))))))))
